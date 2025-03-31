@@ -142,6 +142,7 @@
         let peer;
         let conn;
         let player = "X";
+        let isGameStarted = false;
 
         function startGame() {
             gameId = Math.random().toString(36).substr(2, 5).toUpperCase();
@@ -151,19 +152,21 @@
             showWaitingMessage();
             initializeBoard();
 
-            peer = new Peer(gameId, { host: 'your-peerjs-server-url', port: 9000, path: '/peerjs' });
+            peer = new Peer(gameId, { host: 'peerjs-server-url', port: 9000, path: '/peerjs' });
 
             peer.on('connection', function (c) {
                 conn = c;
                 conn.on('data', function (data) {
                     console.log("Data received: " + data);
-                    // Handle the game data here
+                    // Handle game data (moves, etc.)
                 });
 
                 conn.on('close', function () {
                     alert('La partida ha terminado. El otro jugador ha salido.');
                     exitToMenu();
                 });
+
+                conn.send({ status: "waiting" }); // Update status for other player
             });
         }
 
@@ -180,7 +183,14 @@
                 conn.on('open', function () {
                     document.getElementById("player2").textContent = "JUGADOR 2";
                     hideWaitingMessage();
+                    isGameStarted = true;
                     initializeBoard();
+                    conn.send({ status: "joined" }); // Notify that player 2 joined
+                });
+
+                conn.on('error', function () {
+                    alert("El código de la partida no es válido");
+                    document.getElementById("peerInput").style.border = "2px solid orange";
                 });
 
                 conn.on('close', function () {
@@ -216,7 +226,8 @@
                 cell.classList.add("cell");
                 cell.dataset.index = i;
                 cell.onclick = function () {
-                    if (conn) {
+                    if (isGameStarted && conn) {
+                        // Handle move here
                         conn.send({ move: i });
                     }
                 };

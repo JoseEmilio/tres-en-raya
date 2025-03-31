@@ -86,6 +86,13 @@
             padding: 10px;
             border-radius: 15px;
             box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+            opacity: 0.5; /* Tablero apagado */
+            pointer-events: none; /* Deshabilitar interacción */
+            transition: opacity 0.3s ease, pointer-events 0.3s;
+        }
+        .board.active {
+            opacity: 1; /* Cuando el juego empieza, se ilumina */
+            pointer-events: auto; /* Activar interacción */
         }
         .cell {
             display: flex;
@@ -159,7 +166,6 @@
                 conn.on('data', function (data) {
                     console.log("Data received: " + data);
                     if (data.move !== undefined) {
-                        // Handle move here
                         placeMove(data.move, "O");
                     }
                 });
@@ -169,7 +175,7 @@
                     exitToMenu();
                 });
 
-                conn.send({ status: "waiting" }); // Update status for other player
+                conn.send({ status: "waiting" });
             });
 
             peer.on('open', function(id) {
@@ -193,7 +199,8 @@
                     hideWaitingMessage();
                     isGameStarted = true;
                     initializeBoard();
-                    conn.send({ status: "joined" }); // Notify that player 2 joined
+                    document.getElementById("board").classList.add("active");
+                    conn.send({ status: "joined" });
                 });
 
                 conn.on('error', function () {
@@ -218,4 +225,41 @@
         }
 
         function showWaitingMessage() {
-            document.getElementById("waitingMessage").classList.remove("
+            document.getElementById("waitingMessage").classList.remove("hidden");
+        }
+
+        function hideWaitingMessage() {
+            document.getElementById("waitingMessage").classList.add("hidden");
+        }
+
+        function initializeBoard() {
+            const board = document.getElementById("board");
+            board.innerHTML = "";
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement("div");
+                cell.classList.add("cell");
+                cell.dataset.index = i;
+                cell.addEventListener("click", handleCellClick);
+                board.appendChild(cell);
+            }
+        }
+
+        function handleCellClick(event) {
+            if (!isGameStarted) return;
+            const cell = event.target;
+            const index = cell.dataset.index;
+            if (cell.textContent !== "") return;
+            placeMove(index, player);
+            conn.send({ move: index });
+            player = player === "X" ? "O" : "X";
+        }
+
+        function placeMove(index, player) {
+            const cell = document.querySelector(`.cell[data-index="${index}"]`);
+            if (cell && cell.textContent === "") {
+                cell.textContent = player;
+            }
+        }
+    </script>
+</body>
+</html>

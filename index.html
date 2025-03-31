@@ -17,6 +17,69 @@
             align-items: center;
             justify-content: center;
         }
+        .hidden {
+            display: none !important;
+        }
+        .menu {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+        .menu button, .reset, .join-game-button {
+            padding: 12px 25px;
+            font-size: 1.2em;
+            background-color: #ff4757;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background 0.3s, transform 0.2s;
+            width: 200px;
+        }
+        .menu button:hover, .reset:hover, .join-game-button:hover {
+            background-color: #e84118;
+            transform: scale(1.1);
+        }
+        .input-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #peerInput {
+            padding: 12px;
+            font-size: 1.2em;
+            text-align: center;
+            border-radius: 8px;
+            border: 2px solid white;
+            width: 180px;
+            outline: none;
+            transition: border 0.3s;
+        }
+        #peerInput:focus {
+            border: 2px solid #61dafb;
+        }
+        .blinking {
+            animation: blink-animation 2s infinite alternate;
+        }
+        @keyframes blink-animation {
+            0% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+        .board-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        .players-container {
+            display: flex;
+            justify-content: space-between;
+            width: min(90vw, 400px);
+        }
+        .player-info {
+            font-size: 1.2em;
+        }
         .board {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -38,120 +101,101 @@
             border-radius: 10px;
             cursor: pointer;
             transition: background 0.3s, transform 0.2s;
+            aspect-ratio: 1 / 1;
         }
         .cell:hover {
             background-color: #21a1f1;
             transform: scale(1.1);
         }
-        .cell.x::before {
-            content: "\2716";
-            font-size: 2em;
-            color: red;
-        }
-        .cell.o::before {
-            content: "\2B55";
-            font-size: 2em;
-            color: green;
-        }
         .winner {
             font-size: 1.5em;
             margin-top: 20px;
         }
-        .reset {
-            margin-top: 20px;
-            padding: 12px 25px;
+        #gameCode {
+            margin-top: 10px;
             font-size: 1.2em;
-            background-color: #ff4757;
-            color: white;
-            border: none;
-            cursor: pointer;
-            border-radius: 8px;
-            transition: background 0.3s, transform 0.2s;
-        }
-        .reset:hover {
-            background-color: #e84118;
-            transform: scale(1.1);
+            font-weight: bold;
+            color: #f8e71c;
         }
     </style>
 </head>
 <body>
-    <h1>Tres en Raya</h1>
-    <p id="peerId">Esperando conexión...</p>
-    <input type="text" id="peerInput" placeholder="ID del jugador host">
-    <button onclick="joinGame()">Unirse</button>
-    <div class="board" id="board"></div>
-    <div class="winner" id="winner"></div>
-    <button class="reset" onclick="resetGame()">Reiniciar</button>
+    <h1 id="gameTitle">Tres en Raya</h1>
+    <div class="menu" id="menu">
+        <button onclick="startGame()">START GAME</button>
+        <div class="input-container">
+            <input type="text" id="peerInput" placeholder="ID de partida">
+            <button onclick="joinGame()" class="join-game-button">JOIN GAME</button>
+        </div>
+    </div>
+    
+    <div id="game" class="hidden">
+        <div class="board-container">
+            <div class="players-container">
+                <div class="player-info" id="player1">JUGADOR 1</div>
+                <div class="player-info" id="player2">Esperando JUGADOR</div>
+            </div>
+            <div class="board" id="board"></div>
+        </div>
+        <div id="waitingMessage" class="blinking hidden">Esperando Contrincante...</div>
+        <div id="gameCode" class="hidden"></div>
+        <div class="winner" id="winner"></div>
+        <button class="reset" onclick="exitToMenu()">SALIR</button>
+    </div>
 
     <script>
-        function generateShortId() {
-            return Math.random().toString(36).substr(2, 5).toUpperCase();
+        let isWaiting = true;
+        let gameId = "";
+
+        function startGame() {
+            gameId = Math.random().toString(36).substr(2, 5).toUpperCase();
+            document.getElementById("gameCode").textContent = "Código de partida: " + gameId;
+            document.getElementById("gameCode").classList.remove("hidden");
+            hideMenuAndShowGame();
+            showWaitingMessage();
+            initializeBoard();
         }
 
-        const peer = new Peer(generateShortId()); 
-        let conn;
-        let myRole = "spectator";
-        let boardState = ["", "", "", "", "", "", "", "", ""];
-        let currentPlayer = "X";
-        
-        peer.on("open", (id) => {
-            document.getElementById("peerId").textContent = `Comparte este ID con tu oponente: ${id}`;
-        });
-        
         function joinGame() {
             const peerId = document.getElementById("peerInput").value;
-            conn = peer.connect(peerId);
-            myRole = "player";
-            conn.on("data", (data) => {
-                updateBoard(data.board, data.currentPlayer);
-            });
-        }
-        
-        peer.on("connection", (connection) => {
-            conn = connection;
-            myRole = "host";
-            conn.on("data", (data) => {
-                updateBoard(data.board, data.currentPlayer);
-            });
-        });
-        
-        function handleMove(index) {
-            if (boardState[index] === "" && myRole !== "spectator") {
-                boardState[index] = currentPlayer;
-                currentPlayer = currentPlayer === "X" ? "O" : "X";
-                updateBoard(boardState, currentPlayer);
-                if (conn) {
-                    conn.send({ board: boardState, currentPlayer });
-                }
+            if (!peerId) {
+                document.getElementById("peerInput").style.border = "2px solid red";
+                return;
             }
+            hideMenuAndShowGame();
+            document.getElementById("player2").textContent = "JUGADOR 2";
+            hideWaitingMessage();
+            initializeBoard();
         }
-        
-        function updateBoard(board, turn) {
-            boardState = board;
-            currentPlayer = turn;
-            document.querySelectorAll(".cell").forEach((cell, index) => {
-                cell.textContent = board[index];
-            });
+
+        function hideMenuAndShowGame() {
+            document.getElementById("menu").classList.add("hidden");
+            document.getElementById("game").classList.remove("hidden");
         }
-        
-        function resetGame() {
-            boardState.fill("", 0, 9);
-            currentPlayer = "X";
-            updateBoard(boardState, currentPlayer);
+
+        function exitToMenu() {
+            location.reload();
         }
-        
-        function createBoard() {
+
+        function showWaitingMessage() {
+            document.getElementById("waitingMessage").classList.remove("hidden");
+        }
+
+        function hideWaitingMessage() {
+            document.getElementById("waitingMessage").classList.add("hidden");
+            isWaiting = false;
+        }
+
+        function initializeBoard() {
             const board = document.getElementById("board");
             board.innerHTML = "";
             for (let i = 0; i < 9; i++) {
                 const cell = document.createElement("div");
                 cell.classList.add("cell");
                 cell.dataset.index = i;
-                cell.addEventListener("click", () => handleMove(i));
                 board.appendChild(cell);
             }
         }
-        createBoard();
     </script>
 </body>
 </html>

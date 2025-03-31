@@ -86,13 +86,6 @@
             padding: 10px;
             border-radius: 15px;
             box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
-            opacity: 0.5; /* Tablero apagado */
-            pointer-events: none; /* Deshabilitar interacción */
-            transition: opacity 0.3s ease, pointer-events 0.3s;
-        }
-        .board.active {
-            opacity: 1; /* Cuando el juego empieza, se ilumina */
-            pointer-events: auto; /* Activar interacción */
         }
         .cell {
             display: flex;
@@ -118,6 +111,10 @@
             font-size: 1.2em;
             font-weight: bold;
             color: #f8e71c;
+        }
+        .disabled {
+            opacity: 0.5;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -148,8 +145,7 @@
         let gameId = "";
         let peer;
         let conn;
-        let player = "X";
-        let isGameStarted = false;
+        let player = "X"; // El jugador que crea la partida siempre es X
 
         function startGame() {
             gameId = Math.random().toString(36).substr(2, 5).toUpperCase();
@@ -158,29 +154,7 @@
             hideMenuAndShowGame();
             showWaitingMessage();
             initializeBoard();
-
-            peer = new Peer(gameId, { host: 'peerjs-server-url', port: 9000, path: '/peerjs' });
-
-            peer.on('connection', function (c) {
-                conn = c;
-                conn.on('data', function (data) {
-                    console.log("Data received: " + data);
-                    if (data.move !== undefined) {
-                        placeMove(data.move, "O");
-                    }
-                });
-
-                conn.on('close', function () {
-                    alert('La partida ha terminado. El otro jugador ha salido.');
-                    exitToMenu();
-                });
-
-                conn.send({ status: "waiting" });
-            });
-
-            peer.on('open', function(id) {
-                console.log("Server ID:", id);
-            });
+            connectPeer();
         }
 
         function joinGame() {
@@ -189,30 +163,17 @@
                 document.getElementById("peerInput").style.border = "2px solid red";
                 return;
             }
-
-            peer = new Peer();
-
-            peer.on('open', function (id) {
+            peer = new Peer(peerId, { host: 'peerjs.com', secure: true, port: 443, path: '/myapp' });
+            peer.on('open', id => {
                 conn = peer.connect(peerId);
-                conn.on('open', function () {
+                conn.on('open', () => {
                     document.getElementById("player2").textContent = "JUGADOR 2";
                     hideWaitingMessage();
-                    isGameStarted = true;
                     initializeBoard();
-                    document.getElementById("board").classList.add("active");
-                    conn.send({ status: "joined" });
-                });
-
-                conn.on('error', function () {
-                    alert("El código de la partida no es válido");
-                    document.getElementById("peerInput").style.border = "2px solid orange";
-                });
-
-                conn.on('close', function () {
-                    alert('La partida ha terminado. El jugador 1 ha salido.');
-                    exitToMenu();
+                    conn.on('data', handleOpponentMove);
                 });
             });
+            hideMenuAndShowGame();
         }
 
         function hideMenuAndShowGame() {
@@ -230,6 +191,7 @@
 
         function hideWaitingMessage() {
             document.getElementById("waitingMessage").classList.add("hidden");
+            isWaiting = false;
         }
 
         function initializeBoard() {
@@ -239,26 +201,53 @@
                 const cell = document.createElement("div");
                 cell.classList.add("cell");
                 cell.dataset.index = i;
-                cell.addEventListener("click", handleCellClick);
+                cell.addEventListener("click", () => handlePlayerMove(cell, i));
                 board.appendChild(cell);
             }
         }
 
-        function handleCellClick(event) {
-            if (!isGameStarted) return;
-            const cell = event.target;
-            const index = cell.dataset.index;
-            if (cell.textContent !== "") return;
-            placeMove(index, player);
-            conn.send({ move: index });
+        function handlePlayerMove(cell, index) {
+            if (isWaiting || cell.textContent) return;  // No puedes hacer clic si está esperando o ya hay una ficha
+            cell.textContent = player;
+            if (conn) {
+                conn.send({ index, player });
+            }
+            checkWinner();
             player = player === "X" ? "O" : "X";
         }
 
-        function placeMove(index, player) {
+        function handleOpponentMove(data) {
+            const { index, player } = data;
             const cell = document.querySelector(`.cell[data-index="${index}"]`);
-            if (cell && cell.textContent === "") {
+            if (!cell.textContent) {
                 cell.textContent = player;
+                checkWinner();
+                player = player === "X" ? "O" : "X";
             }
+        }
+
+        function checkWinner() {
+            const cells = document.querySelectorAll(".cell");
+            const winPatterns = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8],  // Filas
+                [0, 3, 6], [1, 4, 7], [2, 5, 8],  // Columnas
+                [0, 4, 8], [2, 4, 6]               // Diagonales
+            ];
+
+            winPatterns.forEach(pattern => {
+                const [a, b, c] = pattern;
+                const cellsArr = [cells[a], cells[b], cells[c]];
+                if (cellsArr.every(cell => cell.textContent === "X")) {
+                    announceWinner("JUGADOR 1 (X) ha ganado!");
+                } else if (cellsArr.every(cell => cell.textContent === "O")) {
+                    announceWinner("JUGADOR 2 (O) ha ganado!");
+                }
+            });
+        }
+
+        function announceWinner(winnerText) {
+            document.getElementById("winner").textContent = winnerText;
+            document.getElementById("board").classList.add("disabled");
         }
     </script>
 </body>

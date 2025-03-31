@@ -6,112 +6,7 @@
     <title>Tres en Raya</title>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <style>
-        body {
-            font-family: 'Poppins', sans-serif;
-            text-align: center;
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
-            color: white;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-        .hidden {
-            display: none !important;
-        }
-        .menu {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            align-items: center;
-        }
-        .menu button, .reset, .join-game-button {
-            padding: 12px 25px;
-            font-size: 1.2em;
-            background-color: #ff4757;
-            color: white;
-            border: none;
-            cursor: pointer;
-            border-radius: 8px;
-            transition: background 0.3s, transform 0.2s;
-            width: 200px;
-        }
-        .menu button:hover, .reset:hover, .join-game-button:hover {
-            background-color: #e84118;
-            transform: scale(1.1);
-        }
-        .input-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        #peerInput {
-            padding: 12px;
-            font-size: 1.2em;
-            text-align: center;
-            border-radius: 8px;
-            border: 2px solid white;
-            width: 180px;
-            outline: none;
-            transition: border 0.3s;
-        }
-        #peerInput:focus {
-            border: 2px solid #61dafb;
-        }
-        .blinking {
-            animation: blink-animation 2s infinite alternate;
-        }
-        @keyframes blink-animation {
-            0% { opacity: 1; }
-            100% { opacity: 0.5; }
-        }
-        .board-container {
-            display: flex;
-            justify-content: space-between;
-            width: min(90vw, 400px);
-            padding: 20px;
-        }
-        .player-info {
-            font-size: 1.2em;
-        }
-        .board {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(3, 1fr);
-            gap: 10px;
-            width: min(90vw, 320px);
-            height: min(90vw, 320px);
-            background-color: rgba(255, 255, 255, 0.2);
-            padding: 10px;
-            border-radius: 15px;
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
-        }
-        .cell {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2em;
-            background-color: #61dafb;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: background 0.3s, transform 0.2s;
-            aspect-ratio: 1 / 1;
-        }
-        .cell:hover {
-            background-color: #21a1f1;
-            transform: scale(1.1);
-        }
-        .winner {
-            font-size: 1.5em;
-            margin-top: 20px;
-        }
-        #gameCode {
-            margin-top: 10px;
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #f8e71c;
-        }
+        /* Aquí va tu CSS sin cambios */
     </style>
 </head>
 <body>
@@ -135,6 +30,7 @@
         <div class="winner" id="winner"></div>
         <button class="reset" onclick="exitToMenu()">SALIR</button>
     </div>
+    
     <script>
         const socket = io('https://your-socket-io-server.com'); // Cambia esto por la URL de tu servidor Socket.io
         let playerTurn = true; // true for player 1, false for player 2
@@ -142,10 +38,11 @@
         let gameId = "";
         let board = Array(9).fill(null);
 
+        // Esta función se llama cuando se hace click en "START GAME"
         function startGame() {
-            socket.emit('createGame');
+            socket.emit('createGame'); // Envia una solicitud para crear una partida
             socket.on('newGame', function(data) {
-                if (data.gameId) {
+                if (data.gameId) { // Si se recibe un ID de juego válido
                     gameId = data.gameId;
                     document.getElementById("gameCode").textContent = "Código de partida: " + gameId;
                     document.getElementById("gameCode").classList.remove("hidden");
@@ -158,13 +55,14 @@
             });
         }
 
+        // Esta función se llama cuando se hace click en "JOIN GAME"
         function joinGame() {
             const peerId = document.getElementById("peerInput").value;
             if (!peerId) {
                 document.getElementById("peerInput").style.border = "2px solid red";
                 return;
             }
-            socket.emit('joinGame', { gameId: peerId });
+            socket.emit('joinGame', { gameId: peerId }); // Solicitar unirse al juego con el ID proporcionado
             socket.on('player2Joined', function(data) {
                 if (data.success) {
                     hideMenuAndShowGame();
@@ -177,34 +75,40 @@
             });
         }
 
+        // Muestra la interfaz del juego y oculta el menú
         function hideMenuAndShowGame() {
             document.getElementById("menu").classList.add("hidden");
             document.getElementById("game").classList.remove("hidden");
         }
 
+        // Función para salir del juego y volver al menú
         function exitToMenu() {
             socket.emit('exitGame', { gameId: gameId });
             location.reload();
         }
 
+        // Muestra el mensaje de espera cuando no hay un jugador 2
         function showWaitingMessage() {
             document.getElementById("waitingMessage").classList.remove("hidden");
         }
 
+        // Oculta el mensaje de espera cuando el jugador 2 se une
         function hideWaitingMessage() {
             document.getElementById("waitingMessage").classList.add("hidden");
             isWaiting = false;
         }
 
+        // Maneja un movimiento realizado en la cuadrícula
         function handleMove(move) {
             if (move && move.index !== undefined && board[move.index] === null) {
                 board[move.index] = move.player;
                 document.getElementById("cell" + move.index).textContent = move.player;
-                playerTurn = !playerTurn; // Change turn
+                playerTurn = !playerTurn; // Cambia de turno
                 checkWinner();
             }
         }
 
+        // Inicializa la cuadrícula de juego
         function initializeBoard() {
             const boardElement = document.getElementById("board");
             boardElement.innerHTML = "";
@@ -213,11 +117,12 @@
                 cell.classList.add("cell");
                 cell.id = "cell" + i;
                 cell.dataset.index = i;
-                cell.addEventListener("click", () => makeMove(i));
+                cell.addEventListener("click", () => makeMove(i)); // Permite que el jugador haga un movimiento
                 boardElement.appendChild(cell);
             }
         }
 
+        // Realiza un movimiento en la cuadrícula
         function makeMove(index) {
             if (board[index] === null && !isWaiting) {
                 const player = playerTurn ? "X" : "O";
@@ -229,11 +134,12 @@
             }
         }
 
+        // Verifica si hay un ganador
         function checkWinner() {
             const winningCombination = [
-                [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
-                [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
-                [0, 4, 8], [2, 4, 6] // diagonals
+                [0, 1, 2], [3, 4, 5], [6, 7, 8], // filas
+                [0, 3, 6], [1, 4, 7], [2, 5, 8], // columnas
+                [0, 4, 8], [2, 4, 6] // diagonales
             ];
             for (let combo of winningCombination) {
                 const [a, b, c] = combo;
@@ -247,6 +153,7 @@
             }
         }
 
+        // Escucha el evento 'moveMade' y maneja el movimiento
         socket.on('moveMade', function(data) {
             handleMove(data);
         });

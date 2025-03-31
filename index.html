@@ -145,12 +145,16 @@
         function startGame() {
             socket.emit('createGame');
             socket.on('newGame', function(data) {
-                gameId = data.gameId;
-                document.getElementById("gameCode").textContent = "Código de partida: " + gameId;
-                document.getElementById("gameCode").classList.remove("hidden");
-                hideMenuAndShowGame();
-                showWaitingMessage();
-                initializeBoard();
+                if (data.gameId) {
+                    gameId = data.gameId;
+                    document.getElementById("gameCode").textContent = "Código de partida: " + gameId;
+                    document.getElementById("gameCode").classList.remove("hidden");
+                    hideMenuAndShowGame();
+                    showWaitingMessage();
+                    initializeBoard();
+                } else {
+                    alert("Error al crear el juego, por favor inténtelo de nuevo.");
+                }
             });
         }
 
@@ -162,10 +166,14 @@
             }
             socket.emit('joinGame', { gameId: peerId });
             socket.on('player2Joined', function(data) {
-                hideMenuAndShowGame();
-                document.getElementById("player2").textContent = "JUGADOR 2";
-                hideWaitingMessage();
-                initializeBoard();
+                if (data.success) {
+                    hideMenuAndShowGame();
+                    document.getElementById("player2").textContent = "JUGADOR 2";
+                    hideWaitingMessage();
+                    initializeBoard();
+                } else {
+                    alert("El código de partida no es válido o la partida ya está llena.");
+                }
             });
         }
 
@@ -175,6 +183,7 @@
         }
 
         function exitToMenu() {
+            socket.emit('exitGame', { gameId: gameId });
             location.reload();
         }
 

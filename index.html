@@ -68,14 +68,9 @@
         }
         .board-container {
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-        }
-        .players-container {
-            display: flex;
             justify-content: space-between;
             width: min(90vw, 400px);
+            padding: 20px;
         }
         .player-info {
             font-size: 1.2em;
@@ -131,11 +126,9 @@
     
     <div id="game" class="hidden">
         <div class="board-container">
-            <div class="players-container">
-                <div class="player-info" id="player1">JUGADOR 1</div>
-                <div class="player-info" id="player2">Esperando JUGADOR</div>
-            </div>
+            <div class="player-info" id="player1">JUGADOR 1</div>
             <div class="board" id="board"></div>
+            <div class="player-info" id="player2">Esperando JUGADOR</div>
         </div>
         <div id="waitingMessage" class="blinking hidden">Esperando Contrincante...</div>
         <div id="gameCode" class="hidden"></div>
@@ -146,6 +139,9 @@
     <script>
         let isWaiting = true;
         let gameId = "";
+        let peer;
+        let conn;
+        let player = "X";
 
         function startGame() {
             gameId = Math.random().toString(36).substr(2, 5).toUpperCase();
@@ -154,6 +150,21 @@
             hideMenuAndShowGame();
             showWaitingMessage();
             initializeBoard();
+
+            peer = new Peer(gameId, { host: 'your-peerjs-server-url', port: 9000, path: '/peerjs' });
+
+            peer.on('connection', function (c) {
+                conn = c;
+                conn.on('data', function (data) {
+                    console.log("Data received: " + data);
+                    // Handle the game data here
+                });
+
+                conn.on('close', function () {
+                    alert('La partida ha terminado. El otro jugador ha salido.');
+                    exitToMenu();
+                });
+            });
         }
 
         function joinGame() {
@@ -162,10 +173,21 @@
                 document.getElementById("peerInput").style.border = "2px solid red";
                 return;
             }
-            hideMenuAndShowGame();
-            document.getElementById("player2").textContent = "JUGADOR 2";
-            hideWaitingMessage();
-            initializeBoard();
+
+            peer = new Peer();
+            peer.on('open', function (id) {
+                conn = peer.connect(peerId);
+                conn.on('open', function () {
+                    document.getElementById("player2").textContent = "JUGADOR 2";
+                    hideWaitingMessage();
+                    initializeBoard();
+                });
+
+                conn.on('close', function () {
+                    alert('La partida ha terminado. El jugador 1 ha salido.');
+                    exitToMenu();
+                });
+            });
         }
 
         function hideMenuAndShowGame() {
@@ -193,6 +215,11 @@
                 const cell = document.createElement("div");
                 cell.classList.add("cell");
                 cell.dataset.index = i;
+                cell.onclick = function () {
+                    if (conn) {
+                        conn.send({ move: i });
+                    }
+                };
                 board.appendChild(cell);
             }
         }

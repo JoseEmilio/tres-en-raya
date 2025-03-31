@@ -158,7 +158,10 @@
                 conn = c;
                 conn.on('data', function (data) {
                     console.log("Data received: " + data);
-                    // Handle game data (moves, etc.)
+                    if (data.move !== undefined) {
+                        // Handle move here
+                        placeMove(data.move, "O");
+                    }
                 });
 
                 conn.on('close', function () {
@@ -167,6 +170,10 @@
                 });
 
                 conn.send({ status: "waiting" }); // Update status for other player
+            });
+
+            peer.on('open', function(id) {
+                console.log("Server ID:", id);
             });
         }
 
@@ -178,6 +185,7 @@
             }
 
             peer = new Peer();
+
             peer.on('open', function (id) {
                 conn = peer.connect(peerId);
                 conn.on('open', function () {
@@ -210,30 +218,4 @@
         }
 
         function showWaitingMessage() {
-            document.getElementById("waitingMessage").classList.remove("hidden");
-        }
-
-        function hideWaitingMessage() {
-            document.getElementById("waitingMessage").classList.add("hidden");
-            isWaiting = false;
-        }
-
-        function initializeBoard() {
-            const board = document.getElementById("board");
-            board.innerHTML = "";
-            for (let i = 0; i < 9; i++) {
-                const cell = document.createElement("div");
-                cell.classList.add("cell");
-                cell.dataset.index = i;
-                cell.onclick = function () {
-                    if (isGameStarted && conn) {
-                        // Handle move here
-                        conn.send({ move: i });
-                    }
-                };
-                board.appendChild(cell);
-            }
-        }
-    </script>
-</body>
-</html>
+            document.getElementById("waitingMessage").classList.remove("

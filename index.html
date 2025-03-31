@@ -112,10 +112,6 @@
             font-weight: bold;
             color: #f8e71c;
         }
-        .disabled {
-            opacity: 0.5;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
@@ -141,15 +137,11 @@
     </div>
 
     <script>
-        let isWaiting = true;
-        let gameId = "";
         let peer;
         let conn;
         let player = "X"; // El jugador que crea la partida siempre es X
 
-        // Crear partida
         function startGame() {
-            // Crear un nuevo ID único de juego
             gameId = Math.random().toString(36).substr(2, 5).toUpperCase();
             document.getElementById("gameCode").textContent = "Código de partida: " + gameId;
             document.getElementById("gameCode").classList.remove("hidden");
@@ -158,15 +150,15 @@
             showWaitingMessage();
             initializeBoard();
 
-            // Iniciar PeerJS para el jugador 1
-            peer = new Peer(gameId, { host: 'peerjs.com', secure: true, port: 443, path: '/myapp' });
+            // Usar servidor PeerJS en Heroku
+            peer = new Peer(gameId, { host: 'peerjs-server.herokuapp.com', secure: true, port: 443 });
             peer.on('open', id => {
                 console.log("ID de Peer para Jugador 1: " + id);
             });
 
             peer.on('connection', (connection) => {
                 conn = connection;
-                conn.on('data', handleOpponentMove); // Recibe el movimiento del oponente
+                conn.on('data', handleOpponentMove); 
                 conn.on('open', () => {
                     document.getElementById("player2").textContent = "JUGADOR 2";
                     hideWaitingMessage();
@@ -175,15 +167,13 @@
             });
         }
 
-        // Unirse a una partida
         function joinGame() {
             const peerId = document.getElementById("peerInput").value;
             if (!peerId) {
                 document.getElementById("peerInput").style.border = "2px solid red";
                 return;
             }
-            peer = new Peer(); // Crear una nueva conexión para el jugador 2
-
+            peer = new Peer(); 
             peer.on('open', id => {
                 console.log("ID de Peer para Jugador 2: " + id);
                 conn = peer.connect(peerId);
@@ -191,7 +181,7 @@
                     document.getElementById("player2").textContent = "JUGADOR 2";
                     hideWaitingMessage();
                     initializeBoard();
-                    conn.on('data', handleOpponentMove); // Recibe el movimiento del oponente
+                    conn.on('data', handleOpponentMove);
                 });
             });
 
@@ -213,7 +203,6 @@
 
         function hideWaitingMessage() {
             document.getElementById("waitingMessage").classList.add("hidden");
-            isWaiting = false;
         }
 
         function initializeBoard() {
@@ -223,53 +212,13 @@
                 const cell = document.createElement("div");
                 cell.classList.add("cell");
                 cell.dataset.index = i;
-                cell.addEventListener("click", () => handlePlayerMove(cell, i));
                 board.appendChild(cell);
             }
         }
 
-        function handlePlayerMove(cell, index) {
-            if (isWaiting || cell.textContent) return;  // No puedes hacer clic si está esperando o ya hay una ficha
-            cell.textContent = player;
-            if (conn) {
-                conn.send({ index, player });
-            }
-            checkWinner();
-            player = player === "X" ? "O" : "X";
-        }
-
         function handleOpponentMove(data) {
-            const { index, player } = data;
-            const cell = document.querySelector(`.cell[data-index="${index}"]`);
-            if (!cell.textContent) {
-                cell.textContent = player;
-                checkWinner();
-                player = player === "X" ? "O" : "X";
-            }
-        }
-
-        function checkWinner() {
-            const cells = document.querySelectorAll(".cell");
-            const winPatterns = [
-                [0, 1, 2], [3, 4, 5], [6, 7, 8],  // Filas
-                [0, 3, 6], [1, 4, 7], [2, 5, 8],  // Columnas
-                [0, 4, 8], [2, 4, 6]               // Diagonales
-            ];
-
-            winPatterns.forEach(pattern => {
-                const [a, b, c] = pattern;
-                const cellsArr = [cells[a], cells[b], cells[c]];
-                if (cellsArr.every(cell => cell.textContent === "X")) {
-                    announceWinner("JUGADOR 1 (X) ha ganado!");
-                } else if (cellsArr.every(cell => cell.textContent === "O")) {
-                    announceWinner("JUGADOR 2 (O) ha ganado!");
-                }
-            });
-        }
-
-        function announceWinner(winnerText) {
-            document.getElementById("winner").textContent = winnerText;
-            document.getElementById("board").classList.add("disabled");
+            console.log("Oponente ha jugado:", data);
+            // Implementar lógica de actualización del tablero según el movimiento del oponente
         }
     </script>
 </body>

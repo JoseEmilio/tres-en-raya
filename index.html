@@ -147,32 +147,54 @@
         let conn;
         let player = "X"; // El jugador que crea la partida siempre es X
 
+        // Crear partida
         function startGame() {
+            // Crear un nuevo ID único de juego
             gameId = Math.random().toString(36).substr(2, 5).toUpperCase();
             document.getElementById("gameCode").textContent = "Código de partida: " + gameId;
             document.getElementById("gameCode").classList.remove("hidden");
+
             hideMenuAndShowGame();
             showWaitingMessage();
             initializeBoard();
-            connectPeer();
+
+            // Iniciar PeerJS para el jugador 1
+            peer = new Peer(gameId, { host: 'peerjs.com', secure: true, port: 443, path: '/myapp' });
+            peer.on('open', id => {
+                console.log("ID de Peer para Jugador 1: " + id);
+            });
+
+            peer.on('connection', (connection) => {
+                conn = connection;
+                conn.on('data', handleOpponentMove); // Recibe el movimiento del oponente
+                conn.on('open', () => {
+                    document.getElementById("player2").textContent = "JUGADOR 2";
+                    hideWaitingMessage();
+                    initializeBoard();
+                });
+            });
         }
 
+        // Unirse a una partida
         function joinGame() {
             const peerId = document.getElementById("peerInput").value;
             if (!peerId) {
                 document.getElementById("peerInput").style.border = "2px solid red";
                 return;
             }
-            peer = new Peer(peerId, { host: 'peerjs.com', secure: true, port: 443, path: '/myapp' });
+            peer = new Peer(); // Crear una nueva conexión para el jugador 2
+
             peer.on('open', id => {
+                console.log("ID de Peer para Jugador 2: " + id);
                 conn = peer.connect(peerId);
                 conn.on('open', () => {
                     document.getElementById("player2").textContent = "JUGADOR 2";
                     hideWaitingMessage();
                     initializeBoard();
-                    conn.on('data', handleOpponentMove);
+                    conn.on('data', handleOpponentMove); // Recibe el movimiento del oponente
                 });
             });
+
             hideMenuAndShowGame();
         }
 
